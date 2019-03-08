@@ -32,6 +32,7 @@ storiesOf('CreditCardInput', module)
           onChange: e => console.log('number change', e),
           onError: err => console.log(`number error: ${err}`)
         }}
+        onValidityStatusChange={valid => console.log(`Is valid: ${valid}`)}
       />
     </Container>
   ))

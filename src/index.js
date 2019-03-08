@@ -119,7 +119,12 @@ type State = {
   cardNumberLength: number,
   cardNumber: ?string,
   errorText: ?string,
-  showZip: boolean
+  showZip: boolean,
+  cardNumberInvalid: boolean,
+  cardExpiryInvalid: boolean,
+  cardCVCInvalid: boolean,
+  cardZipInvalid: boolean,
+  valid: boolean
 };
 
 const inputRenderer = ({ props }: Object) => <input {...props} />;
@@ -163,7 +168,12 @@ class CreditCardInput extends Component<Props, State> {
       cardNumberLength: 0,
       cardNumber: null,
       errorText: null,
-      showZip: false
+      showZip: false,
+      cardNumberInvalid: false,
+      cardExpiryInvalid: false,
+      cardCVCInvalid: false,
+      cardZipInvalid: false,
+      valid: true
     };
   }
 
@@ -225,7 +235,7 @@ class CreditCardInput extends Component<Props, State> {
       this.setState({ showZip: cardNumberLength >= 6 });
     }
 
-    this.setFieldValid();
+    this.setFieldValid('cardNumber');
     if (cardTypeLengths) {
       const lastCardTypeLength = cardTypeLengths[cardTypeLengths.length - 1];
       for (let length of cardTypeLengths) {
@@ -286,7 +296,7 @@ class CreditCardInput extends Component<Props, State> {
 
     this.cardExpiryField.value = formatExpiry(cardExpiry);
 
-    this.setFieldValid();
+    this.setFieldValid('cardExpiry');
 
     const expiryError = isExpiryInvalid(
       cardExpiry,
@@ -341,7 +351,7 @@ class CreditCardInput extends Component<Props, State> {
     const isZipFieldAvailable = this.props.enableZipInput && this.state.showZip;
     const cardType = payment.fns.cardType(this.state.cardNumber);
 
-    this.setFieldValid();
+    this.setFieldValid('cardCVC');
     if (CVCLength >= 4) {
       if (!payment.fns.validateCardCVC(CVC, cardType)) {
         this.setFieldInvalid(
@@ -395,7 +405,7 @@ class CreditCardInput extends Component<Props, State> {
     const zip = e.target.value;
     const zipLength = zip.length;
 
-    this.setFieldValid();
+    this.setFieldValid('cardZip');
 
     if (zipLength >= 5 && !isZipValid(zip)) {
       this.setFieldInvalid(
@@ -429,11 +439,42 @@ class CreditCardInput extends Component<Props, State> {
     };
   };
 
+  handleValidityStatusChange = () => {
+    const { onValidityStatusChange, enableZipInput } = this.props;
+    const {
+      cardNumberInvalid,
+      cardExpiryInvalid,
+      cardCVCInvalid,
+      cardZipInvalid
+    } = this.state;
+
+    const valid =
+      !cardNumberInvalid &&
+      !cardExpiryInvalid &&
+      !cardCVCInvalid &&
+      (enableZipInput ? !cardZipInvalid : true);
+    const statusHasChanged = this.state.valid !== valid;
+
+    this.setState({
+      valid: valid
+    });
+
+    if (onValidityStatusChange && statusHasChanged) {
+      onValidityStatusChange(valid);
+    }
+  };
+
   setFieldInvalid = (errorText: string, inputName?: string) => {
     const { invalidClassName, onError } = this.props;
     // $FlowFixMe
     document.getElementById('field-wrapper').classList.add(invalidClassName);
-    this.setState({ errorText });
+    this.setState(
+      {
+        errorText,
+        [`${inputName}Invalid`]: true
+      },
+      this.handleValidityStatusChange
+    );
 
     if (inputName) {
       const { onError } = this.props[`${inputName}InputProps`];
@@ -445,11 +486,17 @@ class CreditCardInput extends Component<Props, State> {
     }
   };
 
-  setFieldValid = () => {
+  setFieldValid = (inputName?: string) => {
     const { invalidClassName } = this.props;
     // $FlowFixMe
     document.getElementById('field-wrapper').classList.remove(invalidClassName);
-    this.setState({ errorText: null });
+    this.setState(
+      {
+        errorText: null,
+        [`${inputName}Invalid`]: false
+      },
+      this.handleValidityStatusChange
+    );
   };
 
   render = () => {
